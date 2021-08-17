@@ -1,0 +1,216 @@
+---
+title: "Estruturas de Controle"
+author: "Iven Valpassos"
+date: "29/07/2021"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+knitr::opts_chunk$set(root.dir=("D:/cuso_R_petro"))
+
+```
+Todos os dias tomamos decisões do tipo "SE"/"ENTÃO" . 
+
+Se o sinal está vermelho, pare o carro, se está verde siga em frente.
+
+O despertador tocou, levante da cama se tiver reunião cedo, se não tiver reunião durma mais 15 min... e por aí vai.
+
+Utilizar estruturas de controle em programação é traduzir estas decisões em um formato que o computador entenda. Não tem mistério!
+
+```{r}
+x = 30
+if (x < 45) 
+  {"Este número é menor que 45"}
+
+```
+Criamos uma variável (x) igual a 30 e pedimos para o R imprimir "Este número é menor que 45" se x for menor do que 45.
+
+Nós colocamos a ação que o R precisa executar entre chaves. Isso não é obrigatório, mas é uma boa prática. Veja que o código funciona mesmo sem as chaves.
+
+```{r}
+if (x < 45) 
+  "Este número é menor que 45"
+```
+Agora, imagine que que você quer executar uma ação caso a condição seja verdadeira, no entanto, se a condição não for satisfeita o R deve executar outra ação. Neste caso você vai usar uma estrutura 'if'/'else' ('se'/'caso contrário').
+
+```{r}
+if (x < 7) {
+  "Este número é menor que 7"
+} else {
+  "Este número não é menor que 7"
+  }
+```
+As estruturas de controlhe podem ser aninhadas em casos com maior complexidade
+
+```{r}
+x<- 86
+if (x<50){
+  'Este número é menor que cinquenta'
+}else if (x==50) 
+  {'Este número é igual a 50'
+} else {'Este número é maior que 50'}
+
+```
+Podemos utilizar uma função que torna o código mais simples.
+
+```{r}
+x<- 120
+
+ifelse(x<100, 'O valor é menor que 100','Não sei informar')
+```
+```{r}
+x<- c(1,3,15,25,44,50)
+ifelse(x%%2==0, 'O número é par.',
+       ifelse(x%%3==0 , 'O número é múltiplo de 3',NA))
+```
+Vimos no exemplo acima que a função 'ifelse' faz uma iteração através dos elementos de x e retorna uma frase caso o número seja par e outra frase quando o número é múltiplo de 3.
+
+Podemos usar o loop 'for' para fazer este tipo de operação.
+
+```{r}
+for (i in 1:20) {print(i)}
+```
+```{r}
+for (i in rep(rnorm(10))){print(i*2)}
+```
+Podemos fazer com que o loop for ignore alguns elementos durante a iteração.
+
+```{r}
+for (i in 1:100){
+  if (i%%2==0|i%%3==0)
+    next
+  print(i)
+}
+```
+Podemos interromper a execução do loop for se alguma condição for satisfeita.
+
+```{r}
+x<-1
+
+for (i in 1:20){
+  x = x + i
+  if(x>50)
+    break
+  print(x)
+}
+```
+
+Em algumas situações, queremos que o R repita uma determinada operação até que uma condição de parada seja satisfeita. Uma das formas de fazer isso é com a função 'repeat'.
+
+```{r}
+x<- 1
+y<-1
+repeat{
+  x = x*1.01
+  y = y +1
+if (x>1.30)
+  break
+print(x)
+print(y)}
+```
+
+O loop 'while' também pode ser utilizado quando você deseja que que uma operação seja executada até que uma condição seja satisfeita.
+
+```{r}
+x<- 1
+y<- 1
+while (x<1.30){
+  x = x*1.01
+  y = y+1
+  print(x)
+  print(y)
+}
+```
+Agora vamos ver um exemplo utilizando um data frame.
+
+```{r}
+petr4<- read.csv('petr4.csv')
+head(petr4)
+```
+```{r}
+library(zoo)
+library(dplyr)
+library(tidyr)
+library(data.table)
+```
+Nosso primeiro passo é criarmos uma série com a média móvel com janela mais curta (sma) e uma séria com a média móvel mais longa (lma) a partir do preço de fechamento de dada linha da nossa série.
+
+```{r}
+petr4<- petr4%>%mutate(sma = rollapply(petr4['close'],FUN = mean,width = 9,fill = NA,align = 'right'))
+petr4<- petr4%>%mutate(lma = rollapply(petr4['close'],FUN = mean,width = 18,fill = NA,align = 'right'))
+```
+
+Agora vamos criar mais duas séries. Em cada uma delas vamos ter o valor calculado para a média móvel no instante anterior.
+
+```{r}
+petr4<- petr4%>%mutate(previous_sma= shift(petr4$sma,n = 1, type = 'lag'))
+petr4<- petr4%>%mutate(previous_lma = shift(petr4$lma, n = 1, type = 'lag'))
+```
+
+Vamos utilizar as séries criadas anteriormente para gerarmos sinais de compra e venda da ação da Petrobras (vamos ver maiores detalhes no nosso estudo de caso, não se preocupe caso ainda não esteja 100% claro pra você o que estamos fazendo).
+
+
+```{r}
+petr4<- drop_na(petr4)
+petr4$signal<- NA
+```
+
+```{r}
+inicio <- proc.time()
+for (i in 1:nrow(petr4)){
+  if (petr4[i,'sma']>petr4[i,'lma']&petr4[i,'previous_sma']<petr4[i,'previous_lma']){
+    petr4[i,'signal']<- 'Buy'
+    
+  }else if(petr4[i,'sma']<petr4[i,'lma']&petr4[i,'previous_sma']>petr4[i,'previous_lma']){
+     petr4[i,'signal']<- 'Sell'
+  }
+}
+proc.time()-inicio
+```
+
+Vamos carregar os dados novamente e calcular o sinal utilizando uma função da família 'apply'.
+
+https://medium.com/@fernando.gama/fam%C3%ADlia-apply-fugindo-um-pouco-dos-loops-convencionais-43ff6ba96013
+
+
+```{r}
+petr4<- read.csv('petr4.csv')
+
+petr4<- petr4%>%mutate(sma = rollapply(petr4['close'],FUN = mean,width = 9,fill = NA,align = 'right'))
+petr4<- petr4%>%mutate(lma = rollapply(petr4['close'],FUN = mean,width = 18,fill = NA,align = 'right'))
+
+petr4<- petr4%>%mutate(previous_sma= shift(petr4$sma,n = 1, type = 'lag'))
+petr4<- petr4%>%mutate(previous_lma = shift(petr4$lma, n = 1, type = 'lag'))
+
+petr4<- drop_na(petr4)
+petr4$signal<- NA
+
+```
+
+Criando a função que calcula o sinal.
+
+```{r}
+calcula_sinal <- function(sma,lma,previous_sma,previous_lma){
+  if(sma>lma & previous_sma < previous_lma){
+    return('Buy')
+  }else if(sma<lma & previous_sma > previous_lma)
+    return('Sell')
+  
+}
+```
+
+Usando a função 'mapply'.
+
+```{r}
+inicio <- proc.time()
+
+petr4$signal<- mapply(FUN=calcula_sinal,sma = petr4$sma,lma = petr4$lma,previous_sma = petr4$previous_sma,previous_lma = petr4$previous_lma)
+
+proc.time()-inicio
+```
+
+
