@@ -1,0 +1,174 @@
+---
+title: "Funções Apply"
+author: "Iven Valpassos"
+date: "13/09/2021"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,fig.align="center")
+knitr::opts_chunk$set(root.dir=("D:/cuso_R_petro/familia_apply"))
+
+```
+
+Nós vimos na aula de estruturas de controle que existe uma forma mais eficiente de fazer iterações nos dados do que o "loop for": nós utilizamos a função apply().
+
+A aplicação destes métodos é tãoimportante, que vamos dedicar essa aula toda à família de funções apply().
+
+As funções apply() fazem parte do pacote básico do R, as principais são:
+
+1-  apply();
+
+2 - lapply();
+
+3 - sapply();
+
+4 - mapply().
+
+Um bom ponto de partida para entender as funções apply é consultar a documentação do R. Cada função tem suas características, espera receber um tipo de dado ou uma estrutura de dados específica como entrada e retorna o resultado também em um formato específico.
+
+```{r}
+help(apply)
+```
+
+Consultando a documentação vemos que a função apply espera receber uma matriz como dado de entrada e retorna o resultado como uma matriz também.
+
+```{r}
+x<- matrix(rnorm(40),nrow = 5, ncol = 8)
+
+apply(x,2,mean)
+
+
+```
+```{r}
+help(lapply)
+```
+
+A lapply() pode receber uma lista ou um dataframe como dado de entrada e retorna uma lista (daí o 'l' de lapply) com o mesmo comprimento que os dados de entrada. 
+
+
+
+```{r}
+lista <- list(x[,1],x[,2],x[,3])
+
+lapply(lista,sum)
+```
+
+```{r}
+help(sapply)
+```
+A função sapply() simplifica o resultado da função lapply().
+
+O 's' é de simplificar. A função retorna o resultado em um formato de vetor oou de matriz. 
+
+
+```{r}
+lista <- list(x[,1],x[,2],x[,3])
+
+
+sapply(lista,sum)
+```
+
+```{r}
+help(mapply)
+```
+
+
+
+```{r}
+mapply(rep,1:6,5)
+```
+O 'm' é de multivariada. A função mapply() permite a aplicação de uma função com múltiplos argumentos em vetores e listas.
+
+
+
+Agora vamos aplicar um pouco do que vimos com um exemplo.
+
+
+Uma das formas de simular a trajetória do preço de um ativo, a ação de uma empresa por exemplo, é considerar que o preço segue um movimento browniano. Não vamos entrar em detalhes sobre isso aqui, mas no nosso exemplo vamos ver como usar funções apply() ajudar a construir cenários e testar hipóteses de forma rápida e eficiente.
+
+Primeiro, vamos criar uma função que gera as trajetórias dos preços.
+
+
+```{r}
+
+BrownianoGeom<-function(start_point,paths,count,mean,sigma)
+{
+	
+	interval<-5/count
+	
+	sample<-matrix(0,nrow=(count+1),ncol=paths)
+	for(i in 1:paths)
+	{
+		sample[1,i]<-start_point
+		for(j in 2:(count+1))
+		{
+			sample[j,i]<-sample[j-1,i]*exp(interval*(mean-((sigma)^2)/2)+((interval)^.5)*rnorm(1)*sigma)
+			list_sample<- lapply(seq_len(ncol(sample)),function(i) sample[,i])
+			list_sample<- lapply(list_sample, as.data.frame)
+			
+		}
+	}	
+	
+	
+	return(list_sample)
+} 
+
+
+```
+
+
+```{r}
+library(zoo)
+library(dplyr)
+library(tidyr)
+library(data.table)
+```
+
+
+Agora vamos criar uma função que calcula medias móveis.
+
+
+```{r}
+medias_moveis<- function(x){
+  
+  x['sma']<- rollapply(x[1],FUN = mean,width = 9,fill = NA,align = 'right')
+  x['lma']<- rollapply(x[1],FUN = mean,width = 18,fill = NA,align = 'right')
+  x<- as.data.frame(x)
+
+  return(x)
+}
+```
+
+
+Você deve lembrar que nós já criamos as medias móveis do preço da ação da Petrobras em uma aula anterior, certo?
+
+Vamos criar médias em 10 trajetórias diferentes de preços, o que vamos fazer com isso vai ficar pro nosso estudo de caso, na próxima aula.
+
+
+```{r}
+lista_precos<- BrownianoGeom(start_point = 20,paths = 10,count = 1000,mean=0.01,sigma = 0.35)
+
+lista_medias<- lapply(lista_precos, medias_moveis)
+
+print(head(lista_medias[1]))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
